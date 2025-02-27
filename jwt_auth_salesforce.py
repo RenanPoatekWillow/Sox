@@ -1,7 +1,7 @@
 # This filters By:
 # 1.Section in Scope
 # 2.If Section "Flow", FIlter By Flows In Scope
-
+# 3.Included Created By Name and Only show Valid Sers (Not Unknown)
 
 import jwt
 import requests
@@ -70,7 +70,7 @@ def query_audit_trail(access_token, instance_url):
         "Content-Type": "application/json",
     }
 
-    soql_query = "SELECT Action, CreatedDate, Display, Section FROM SetupAuditTrail WHERE CreatedDate=LAST_MONTH"
+    soql_query = "SELECT Action, CreatedDate, Display, Section, CreatedById, CreatedBy.Name FROM SetupAuditTrail WHERE CreatedDate=LAST_MONTH"
     encoded_query = urllib.parse.quote(soql_query)
     query_url = f"{instance_url}/services/data/{API_VERSION}/query?q={encoded_query}"
     
@@ -106,22 +106,27 @@ def query_audit_trail(access_token, instance_url):
             "FFX PSA Project Closure Based on Stage", "FFX PSA Set Assignment Cost Rate From Rate Card",
             "FFX PSA Set RR Bill Rate to 0 for Fixed Price Projects - V1"
         ]
-
         for record in records:
             if record['Section'] in filtered_sections:
-                if record['Section'] == "Flows":
-                    if record['Action'] in flow_actions:
+                created_by = record['CreatedBy']['Name'] if record['CreatedBy'] else 'Unknown'
+                if created_by != 'Unknown':
+                    if record['Section'] == "Flows":
+                        if record['Action'] in flow_actions:
+                            print(f"Time: {record['CreatedDate']}")
+                            print(f"Action: {record['Action']}")
+                            print(f"Details: {record['Display']}")
+                            print(f"Section: {record['Section']}")
+                            print(f"Created By: {created_by}")
+                            print(f"Created By ID: {record['CreatedById']}")
+                            print("-" * 50)
+                    else:
                         print(f"Time: {record['CreatedDate']}")
                         print(f"Action: {record['Action']}")
                         print(f"Details: {record['Display']}")
                         print(f"Section: {record['Section']}")
+                        print(f"Created By: {created_by}")
+                        print(f"Created By ID: {record['CreatedById']}")
                         print("-" * 50)
-                else:
-                    print(f"Time: {record['CreatedDate']}")
-                    print(f"Action: {record['Action']}")
-                    print(f"Details: {record['Display']}")
-                    print(f"Section: {record['Section']}")
-                    print("-" * 50)
             
     except requests.exceptions.RequestException as e:
         print(f"Query failed: {e}")
