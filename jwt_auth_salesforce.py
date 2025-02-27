@@ -1,4 +1,7 @@
-# This script retrieves Salesforce Audit Trail logs for the last 6 months
+# This filters By:
+# 1.Section in Scope
+# 2.If Section "Flow", FIlter By Flows In Scope
+
 
 import jwt
 import requests
@@ -67,7 +70,7 @@ def query_audit_trail(access_token, instance_url):
         "Content-Type": "application/json",
     }
 
-    soql_query = "SELECT Action, CreatedDate, Display, Section FROM SetupAuditTrail ORDER BY CreatedDate DESC"
+    soql_query = "SELECT Action, CreatedDate, Display, Section FROM SetupAuditTrail WHERE CreatedDate=LAST_MONTH"
     encoded_query = urllib.parse.quote(soql_query)
     query_url = f"{instance_url}/services/data/{API_VERSION}/query?q={encoded_query}"
     
@@ -82,12 +85,43 @@ def query_audit_trail(access_token, instance_url):
         records = response.json()['records']
 
         print("\nAudit Trail Results:")
+        filtered_sections = [
+            "Approval Process", "Connected Apps", "Custom Apps", 
+            "Delegated Authentication Configuration", "Flows", 
+            "Inbound Change Sets", "Manage Users", 
+            "OAuth Client Credentials User", "Password Policies",
+            "Remote Access", "SAML Configuration", "Session Settings",
+            "Validation Rules"
+        ]
+        flow_actions = [
+            "FF PSA - Copy Percent Complete Costs to RTL", "FF PSA: Milestone Assignments",
+            "FF PSA: Set Milestone Recognition Method", "FF PSA: Set Project Recognition Method", 
+            "FF PSA: Set Timecard Split Recognition Method", "FF PSA: Update Timecard for Rev Rec - Auto Launched",
+            "FF PSA: Update Total Recognized To Date On Project - Scheduled",
+            "FFX PSA Actual Date Approves And Closes Milestone", "FFX PSA Approved Budget",
+            "FFX PSA Assignment Set Bill Rate from Rate Card For Non-Fixed Price Projects",
+            "FFX PSA Billable Project Defaults On Create", "FFX PSA Exclude 0 Billable Amounts on Timecard Splits",
+            "FFX PSA Milestone Creation Default", "FFX PSA Misc Adjustment Approved False",
+            "FFX PSA Misc Adjustment Approved True", "FFX PSA Project Activation based on Stage",
+            "FFX PSA Project Closure Based on Stage", "FFX PSA Set Assignment Cost Rate From Rate Card",
+            "FFX PSA Set RR Bill Rate to 0 for Fixed Price Projects - V1"
+        ]
+
         for record in records:
-            print(f"Time: {record['CreatedDate']}")
-            print(f"Action: {record['Action']}")
-            print(f"Details: {record['Display']}")
-            print(f"Section: {record['Section']}")
-            print("-" * 50)
+            if record['Section'] in filtered_sections:
+                if record['Section'] == "Flows":
+                    if record['Action'] in flow_actions:
+                        print(f"Time: {record['CreatedDate']}")
+                        print(f"Action: {record['Action']}")
+                        print(f"Details: {record['Display']}")
+                        print(f"Section: {record['Section']}")
+                        print("-" * 50)
+                else:
+                    print(f"Time: {record['CreatedDate']}")
+                    print(f"Action: {record['Action']}")
+                    print(f"Details: {record['Display']}")
+                    print(f"Section: {record['Section']}")
+                    print("-" * 50)
             
     except requests.exceptions.RequestException as e:
         print(f"Query failed: {e}")
