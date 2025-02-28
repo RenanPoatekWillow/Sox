@@ -1,12 +1,12 @@
-# This filters By:
-# 1.Section in Scope
-# 2.If Section "Flow", FIlter By Flows In Scope
-# 3.Included Created By Name and Only show Valid Sers (Not Unknown)
+# Retrieve All Logs and Save It to a file in Directory C:\Users\Renan Carriel\Desktop\SOX
+# Added Pagination since It retrieves 2000 records at a time
+
 
 import jwt
 import requests
 import time
 import urllib.parse
+import datetime  # Add this import at the top with other imports
 from dotenv import load_dotenv  # Add this import
 import os  # Add this import
 
@@ -70,7 +70,7 @@ def query_audit_trail(access_token, instance_url):
         "Content-Type": "application/json",
     }
 
-    soql_query = "SELECT Action, CreatedDate, Display, Section, CreatedById, CreatedBy.Name FROM SetupAuditTrail WHERE CreatedDate=LAST_MONTH"
+    soql_query = "SELECT Action, CreatedDate, Display, Section, CreatedById, CreatedBy.Name FROM SetupAuditTrail"
     encoded_query = urllib.parse.quote(soql_query)
     query_url = f"{instance_url}/services/data/{API_VERSION}/query?q={encoded_query}"
     
@@ -78,55 +78,48 @@ def query_audit_trail(access_token, instance_url):
     print(f"Making request to: {query_url}")
 
     try:
+        all_records = []
+        
+        # Get initial response
         response = requests.get(query_url, headers=headers)
         print(f"Response status code: {response.status_code}")
-        
         response.raise_for_status()
-        records = response.json()['records']
+        
+        response_data = response.json()
+        all_records.extend(response_data['records'])
+        
+        # Handle pagination
+        while 'nextRecordsUrl' in response_data:
+            print("Retrieving next batch of records...")
+            next_url = f"{instance_url}{response_data['nextRecordsUrl']}"
+            response = requests.get(next_url, headers=headers)
+            response.raise_for_status()
+            response_data = response.json()
+            all_records.extend(response_data['records'])
 
-        print("\nAudit Trail Results:")
-        filtered_sections = [
-            "Approval Process", "Connected Apps", "Custom Apps", 
-            "Delegated Authentication Configuration", "Flows", 
-            "Inbound Change Sets", "Manage Users", 
-            "OAuth Client Credentials User", "Password Policies",
-            "Remote Access", "SAML Configuration", "Session Settings",
-            "Validation Rules"
-        ]
-        flow_actions = [
-            "FF PSA - Copy Percent Complete Costs to RTL", "FF PSA: Milestone Assignments",
-            "FF PSA: Set Milestone Recognition Method", "FF PSA: Set Project Recognition Method", 
-            "FF PSA: Set Timecard Split Recognition Method", "FF PSA: Update Timecard for Rev Rec - Auto Launched",
-            "FF PSA: Update Total Recognized To Date On Project - Scheduled",
-            "FFX PSA Actual Date Approves And Closes Milestone", "FFX PSA Approved Budget",
-            "FFX PSA Assignment Set Bill Rate from Rate Card For Non-Fixed Price Projects",
-            "FFX PSA Billable Project Defaults On Create", "FFX PSA Exclude 0 Billable Amounts on Timecard Splits",
-            "FFX PSA Milestone Creation Default", "FFX PSA Misc Adjustment Approved False",
-            "FFX PSA Misc Adjustment Approved True", "FFX PSA Project Activation based on Stage",
-            "FFX PSA Project Closure Based on Stage", "FFX PSA Set Assignment Cost Rate From Rate Card",
-            "FFX PSA Set RR Bill Rate to 0 for Fixed Price Projects - V1"
-        ]
-        for record in records:
-            if record['Section'] in filtered_sections:
-                created_by = record['CreatedBy']['Name'] if record['CreatedBy'] else 'Unknown'
-                if created_by != 'Unknown':
-                    if record['Section'] == "Flows":
-                        if record['Action'] in flow_actions:
-                            print(f"Time: {record['CreatedDate']}")
-                            print(f"Action: {record['Action']}")
-                            print(f"Details: {record['Display']}")
-                            print(f"Section: {record['Section']}")
-                            print(f"Created By: {created_by}")
-                            print(f"Created By ID: {record['CreatedById']}")
-                            print("-" * 50)
-                    else:
-                        print(f"Time: {record['CreatedDate']}")
-                        print(f"Action: {record['Action']}")
-                        print(f"Details: {record['Display']}")
-                        print(f"Section: {record['Section']}")
-                        print(f"Created By: {created_by}")
-                        print(f"Created By ID: {record['CreatedById']}")
-                        print("-" * 50)
+        print(f"Total records retrieved: {len(all_records)}")
+
+        # Generate filename with current month and year
+        current_date = datetime.datetime.now()
+        filename = f"C:\\Users\\Renan Carriel\\Desktop\\SOX\\AuditTrail_{current_date.strftime('%b%y')}.txt"
+
+        # Write results to file
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write("Salesforce Audit Trail Report\n")
+            f.write(f"Generated on: {current_date.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Records: {len(all_records)}\n")
+            f.write("=" * 50 + "\n\n")
+            
+            for record in all_records:
+                f.write(f"Time: {record['CreatedDate']}\n")
+                f.write(f"Action: {record['Action']}\n")
+                f.write(f"Details: {record['Display']}\n")
+                f.write(f"Section: {record['Section']}\n")
+                f.write(f"Created By: {record['CreatedBy']['Name'] if record['CreatedBy'] else 'Automated User'}\n")
+                f.write(f"Created By ID: {record['CreatedById']}\n")
+                f.write("-" * 50 + "\n")
+
+        print(f"\nResults have been saved to: {filename}")
             
     except requests.exceptions.RequestException as e:
         print(f"Query failed: {e}")
