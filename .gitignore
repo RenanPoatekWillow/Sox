@@ -1,3 +1,4 @@
 FullSandbox.env
 server.key
 server.crt
+credentials.json

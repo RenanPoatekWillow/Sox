@@ -6,6 +6,8 @@
 # Added Custom Apps Section and Filtered Created By Certinia
 # Added Manage Users Section and Filtered Changed Profile to System Administrator, Department Administrator, Admin Revenue Management, and PSA Administrator
 # Added .env file to store credentials
+# Added Google Drive Service to Upload Files to Google Drive
+# Added Google Drive Folder ID to .env file
 
 import jwt
 import requests
@@ -14,6 +16,12 @@ import urllib.parse
 import datetime
 from dotenv import load_dotenv  # Add this import
 import os  # Add this import
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import pickle
 
 # Load environment variables
 load_dotenv('FullSandbox.env')
@@ -24,6 +32,10 @@ USERNAME = os.getenv('SF_USERNAME')
 PRIVATE_KEY_FILE = os.getenv('SF_PRIVATE_KEY_FILE')
 SALESFORCE_URL = os.getenv('SF_URL')
 API_VERSION = os.getenv('SF_API_VERSION')
+
+# Add these constants after the existing ones
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+GOOGLE_DRIVE_FOLDER_ID = os.getenv('GOOGLE_DRIVE_FOLDER_ID')  # Add this to your .env file
 
 def generate_jwt():
     with open(PRIVATE_KEY_FILE, "r") as key_file:
@@ -68,6 +80,39 @@ def authenticate_with_salesforce():
         if hasattr(e, 'response'):
             print(f"Response content: {e.response.text}")
         return None, None
+
+def get_google_drive_service():
+    """Get or create Google Drive service."""
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+    
+    return build('drive', 'v3', credentials=creds)
+
+def upload_to_drive(service, file_path, folder_id):
+    """Upload a file to Google Drive."""
+    file_name = os.path.basename(file_path)
+    file_metadata = {
+        'name': file_name,
+        'parents': [folder_id]
+    }
+    media = MediaFileUpload(file_path, resumable=True)
+    file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id'
+    ).execute()
+    print(f'File {file_name} uploaded to Google Drive. File ID: {file.get("id")}')
 
 def query_audit_trail(access_token, instance_url):
     headers = {
@@ -202,6 +247,15 @@ def query_audit_trail(access_token, instance_url):
         print(f"\nOriginal results have been saved to: {original_filename}")
         print(f"Filtered results have been saved to: {filtered_filename}")
         print(f"Total records in filtered file: {len(filtered_records)}")
+
+        # Upload files to Google Drive
+        try:
+            service = get_google_drive_service()
+            upload_to_drive(service, original_filename, GOOGLE_DRIVE_FOLDER_ID)
+            upload_to_drive(service, filtered_filename, GOOGLE_DRIVE_FOLDER_ID)
+            print("Files successfully uploaded to Google Drive")
+        except Exception as e:
+            print(f"Error uploading to Google Drive: {e}")
             
     except requests.exceptions.RequestException as e:
         print(f"Query failed: {e}")
