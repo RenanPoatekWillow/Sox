@@ -2,7 +2,7 @@
 # Added Pagination since It retrieves 2000 records at a time
 # Added Filtered Sections
 # Added Filtered Results to a new file
-
+# Added Flows Section and Filtered Flows In Scope
 
 
 import jwt
@@ -83,6 +83,29 @@ def query_audit_trail(access_token, instance_url):
         "Validation Rules"
     }
 
+    # Define specific Flow names to filter
+    flow_filters = {
+        "FF PSA - Copy Percent Complete Costs to RTL",
+        "FF PSA: Milestone Assignments",
+        "FF PSA: Set Milestone Recognition Method",
+        "FF PSA: Set Project Recognition Method",
+        "FF PSA: Set Timecard Split Recognition Method",
+        "FF PSA: Update Timecard for Rev Rec - Auto Launched",
+        "FF PSA: Update Total Recognized To Date On Project - Scheduled",
+        "FFX PSA Actual Date Approves And Closes Milestone",
+        "FFX PSA Approved Budget",
+        "FFX PSA Assignment Set Bill Rate from Rate Card For Non-Fixed Price Projects",
+        "FFX PSA Billable Project Defaults On Create",
+        "FFX PSA Exclude 0 Billable Amounts on Timecard Splits",
+        "FFX PSA Milestone Creation Default",
+        "FFX PSA Misc Adjustment Approved False",
+        "FFX PSA Misc Adjustment Approved True",
+        "FFX PSA Project Activation based on Stage",
+        "FFX PSA Project Closure Based on Stage",
+        "FFX PSA Set Assignment Cost Rate From Rate Card",
+        "FFX PSA Set RR Bill Rate to 0 for Fixed Price Projects - V1"
+    }
+
     soql_query = "SELECT Action, CreatedDate, Display, Section, CreatedById, CreatedBy.Name FROM SetupAuditTrail"
     encoded_query = urllib.parse.quote(soql_query)
     query_url = f"{instance_url}/services/data/{API_VERSION}/query?q={encoded_query}"
@@ -119,7 +142,15 @@ def query_audit_trail(access_token, instance_url):
         filtered_filename = f"C:\\Users\\Renan Carriel\\Desktop\\SOX\\{base_filename}Filtered.txt"
 
         # Filter records
-        filtered_records = [record for record in all_records if record['Section'] in filtered_sections]
+        filtered_records = []
+        for record in all_records:
+            if record['Section'] in filtered_sections:
+                # Additional filter for Flows section
+                if record['Section'] == "Flows":
+                    if any(flow_name in record['Display'] for flow_name in flow_filters):
+                        filtered_records.append(record)
+                else:
+                    filtered_records.append(record)
 
         # Write original results to file
         with open(original_filename, 'w', encoding='utf-8') as f:
