@@ -4,7 +4,7 @@
 # Added Filtered Results to a new file
 # Added Flows Section and Filtered Flows In Scope
 # Added Custom Apps Section and Filtered Created By Certinia
-
+# Added Manage Users Section and Filtered Changed Profile to System Administrator, Department Administrator, Admin Revenue Management, and PSA Administrator
 
 import jwt
 import requests
@@ -146,11 +146,19 @@ def query_audit_trail(access_token, instance_url):
         filtered_records = []
         for record in all_records:
             if record['Section'] in filtered_sections:
-                # Additional filter for Flows section
-                if record['Section'] == "Flows":
+                # Filter for Manage Users section
+                if record['Section'] == "Manage Users":
+                    details = record['Display']
+                    if (("Changed Profile" in details and "System Administrator" in details) or
+                        ("Changed Profile" in details and "Department Administrator" in details) or
+                        ("Permission set group" in details and "Admin Revenue Management" in details) or
+                        ("Permission set group" in details and "PSA Administrator" in details)):
+                        filtered_records.append(record)
+                # Filter for Flows section
+                elif record['Section'] == "Flows":
                     if any(flow_name in record['Display'] for flow_name in flow_filters):
                         filtered_records.append(record)
-                # New filter for Custom Apps section
+                # Filter for Custom Apps section
                 elif record['Section'] == "Custom Apps":
                     if record['CreatedBy'] and "Certinia" in record['CreatedBy']['Name']:
                         filtered_records.append(record)
