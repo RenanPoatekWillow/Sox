@@ -1,5 +1,8 @@
 # Retrieve All Logs and Save It to a file in Directory C:\Users\Renan Carriel\Desktop\SOX
 # Added Pagination since It retrieves 2000 records at a time
+# Added Filtered Sections
+# Added Filtered Results to a new file
+
 
 
 import jwt
@@ -70,6 +73,16 @@ def query_audit_trail(access_token, instance_url):
         "Content-Type": "application/json",
     }
 
+    # Define sections to filter
+    filtered_sections = {
+        "Approval Process", "Connected Apps", "Custom Apps", 
+        "Delegated Authentication Configuration", "Flows", 
+        "Inbound Change Sets", "Manage Users", 
+        "OAuth Client Credentials User", "Password Policies", 
+        "Remote Access", "SAML Configuration", "Session Settings", 
+        "Validation Rules"
+    }
+
     soql_query = "SELECT Action, CreatedDate, Display, Section, CreatedById, CreatedBy.Name FROM SetupAuditTrail"
     encoded_query = urllib.parse.quote(soql_query)
     query_url = f"{instance_url}/services/data/{API_VERSION}/query?q={encoded_query}"
@@ -99,12 +112,17 @@ def query_audit_trail(access_token, instance_url):
 
         print(f"Total records retrieved: {len(all_records)}")
 
-        # Generate filename with current month and year
+        # Generate filenames with current month and year
         current_date = datetime.datetime.now()
-        filename = f"C:\\Users\\Renan Carriel\\Desktop\\SOX\\AuditTrail_{current_date.strftime('%b%y')}.txt"
+        base_filename = f"AuditTrail_{current_date.strftime('%b%y')}"
+        original_filename = f"C:\\Users\\Renan Carriel\\Desktop\\SOX\\{base_filename}.txt"
+        filtered_filename = f"C:\\Users\\Renan Carriel\\Desktop\\SOX\\{base_filename}Filtered.txt"
 
-        # Write results to file
-        with open(filename, 'w', encoding='utf-8') as f:
+        # Filter records
+        filtered_records = [record for record in all_records if record['Section'] in filtered_sections]
+
+        # Write original results to file
+        with open(original_filename, 'w', encoding='utf-8') as f:
             f.write("Salesforce Audit Trail Report\n")
             f.write(f"Generated on: {current_date.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Total Records: {len(all_records)}\n")
@@ -119,7 +137,26 @@ def query_audit_trail(access_token, instance_url):
                 f.write(f"Created By ID: {record['CreatedById']}\n")
                 f.write("-" * 50 + "\n")
 
-        print(f"\nResults have been saved to: {filename}")
+        # Write filtered results to new file
+        with open(filtered_filename, 'w', encoding='utf-8') as f:
+            f.write("Salesforce Filtered Audit Trail Report\n")
+            f.write(f"Generated on: {current_date.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Filtered Records: {len(filtered_records)}\n")
+            f.write("Filtered Sections: " + ", ".join(filtered_sections) + "\n")
+            f.write("=" * 50 + "\n\n")
+            
+            for record in filtered_records:
+                f.write(f"Time: {record['CreatedDate']}\n")
+                f.write(f"Action: {record['Action']}\n")
+                f.write(f"Details: {record['Display']}\n")
+                f.write(f"Section: {record['Section']}\n")
+                f.write(f"Created By: {record['CreatedBy']['Name'] if record['CreatedBy'] else 'Automated User'}\n")
+                f.write(f"Created By ID: {record['CreatedById']}\n")
+                f.write("-" * 50 + "\n")
+
+        print(f"\nOriginal results have been saved to: {original_filename}")
+        print(f"Filtered results have been saved to: {filtered_filename}")
+        print(f"Total records in filtered file: {len(filtered_records)}")
             
     except requests.exceptions.RequestException as e:
         print(f"Query failed: {e}")
