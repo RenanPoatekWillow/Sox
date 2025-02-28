@@ -3,6 +3,7 @@
 # Added Filtered Sections
 # Added Filtered Results to a new file
 # Added Flows Section and Filtered Flows In Scope
+# Added Custom Apps Section and Filtered Created By Certinia
 
 
 import jwt
@@ -148,6 +149,10 @@ def query_audit_trail(access_token, instance_url):
                 # Additional filter for Flows section
                 if record['Section'] == "Flows":
                     if any(flow_name in record['Display'] for flow_name in flow_filters):
+                        filtered_records.append(record)
+                # New filter for Custom Apps section
+                elif record['Section'] == "Custom Apps":
+                    if record['CreatedBy'] and "Certinia" in record['CreatedBy']['Name']:
                         filtered_records.append(record)
                 else:
                     filtered_records.append(record)
