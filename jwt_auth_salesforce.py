@@ -5,12 +5,13 @@
 # Added Flows Section and Filtered Flows In Scope
 # Added Custom Apps Section and Filtered Created By Certinia
 # Added Manage Users Section and Filtered Changed Profile to System Administrator, Department Administrator, Admin Revenue Management, and PSA Administrator
+# Added .env file to store credentials
 
 import jwt
 import requests
 import time
 import urllib.parse
-import datetime  # Add this import at the top with other imports
+import datetime
 from dotenv import load_dotenv  # Add this import
 import os  # Add this import
 
